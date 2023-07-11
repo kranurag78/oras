@@ -22,7 +22,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/need-being/go-tree"
 	"github.com/opencontainers/image-spec/specs-go"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/spf13/cobra"
@@ -31,6 +30,7 @@ import (
 	"oras.land/oras-go/v2"
 	"oras.land/oras/cmd/oras/internal/option"
 	"oras.land/oras/internal/graph"
+	"oras.land/oras/internal/tree"
 )
 
 type discoverOptions struct {
@@ -46,8 +46,8 @@ func discoverCmd() *cobra.Command {
 	var opts discoverOptions
 	cmd := &cobra.Command{
 		Use:   "discover [flags] <name>{:<tag>|@<digest>}",
-		Short: "[Preview] Discover referrers of a manifest in the remote registry",
-		Long: `[Preview] Discover referrers of a manifest in the remote registry
+		Short: "[Preview] Discover referrers of a manifest in a registry or an OCI image layout",
+		Long: `[Preview] Discover referrers of a manifest in a registry or an OCI image layout
 
 ** This command is in preview and under development. **
 
@@ -69,7 +69,7 @@ Example - Discover all the referrers of manifest with annotations, displayed in 
 Example - Discover referrers with type 'test-artifact' of manifest 'hello:v1' in registry 'localhost:5000':
   oras discover --artifact-type test-artifact localhost:5000/hello:v1
 
-Example - Discover referrers of the manifest tagged 'v1' in an OCI layout folder 'layout-dir':
+Example - Discover referrers of the manifest tagged 'v1' in an OCI image layout folder 'layout-dir':
   oras discover --oci-layout layout-dir:v1
   oras discover --oci-layout -v -o tree layout-dir:v1
 `,
@@ -133,7 +133,7 @@ func runDiscover(ctx context.Context, opts discoverOptions) error {
 	fmt.Println("Digest:", desc.Digest)
 	if len(refs) > 0 {
 		fmt.Println()
-		printDiscoveredReferrersTable(refs, opts.Verbose)
+		_ = printDiscoveredReferrersTable(refs, opts.Verbose)
 	}
 	return nil
 }
@@ -153,7 +153,7 @@ func fetchAllReferrers(ctx context.Context, repo oras.ReadOnlyGraphTarget, desc 
 				if err != nil {
 					return err
 				}
-				referrerNode.AddPathString(strings.TrimSpace(string(bytes)))
+				referrerNode.AddPath(strings.TrimSpace(string(bytes)))
 			}
 		}
 		err := fetchAllReferrers(
@@ -171,7 +171,7 @@ func fetchAllReferrers(ctx context.Context, repo oras.ReadOnlyGraphTarget, desc 
 	return nil
 }
 
-func printDiscoveredReferrersTable(refs []ocispec.Descriptor, verbose bool) {
+func printDiscoveredReferrersTable(refs []ocispec.Descriptor, verbose bool) error {
 	typeNameTitle := "Artifact Type"
 	typeNameLength := len(typeNameTitle)
 	for _, ref := range refs {
@@ -188,9 +188,12 @@ func printDiscoveredReferrersTable(refs []ocispec.Descriptor, verbose bool) {
 	for _, ref := range refs {
 		print(ref.ArtifactType, ref.Digest)
 		if verbose {
-			printJSON(ref)
+			if err := printJSON(ref); err != nil {
+				return fmt.Errorf("Error printing JSON: %w", err)
+			}
 		}
 	}
+	return nil
 }
 
 // printDiscoveredReferrersJSON prints referrer list in JSON equivalent to the

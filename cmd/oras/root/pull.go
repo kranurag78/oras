@@ -17,6 +17,7 @@ package root
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -50,8 +51,8 @@ func pullCmd() *cobra.Command {
 	var opts pullOptions
 	cmd := &cobra.Command{
 		Use:   "pull [flags] <name>{:<tag>|@<digest>}",
-		Short: "Pull files from remote registry",
-		Long: `Pull files from remote registry
+		Short: "Pull files from a registry or an OCI image layout",
+		Long: `Pull files from a registry or an OCI image layout
 
 Example - Pull artifact files from a registry:
   oras pull localhost:5000/hello:v1
@@ -75,7 +76,7 @@ Example - Pull files from a registry with certain platform:
 Example - Pull all files with concurrency level tuned:
   oras pull --concurrency 6 localhost:5000/hello:v1
 
-Example - Pull artifact files from an OCI layout folder 'layout-dir':
+Example - Pull artifact files from an OCI image layout folder 'layout-dir':
   oras pull --oci-layout layout-dir:v1
 
 Example - Pull artifact files from an OCI layout archive 'layout.tar':
@@ -237,6 +238,9 @@ func runPull(ctx context.Context, opts pullOptions) error {
 	// Copy
 	desc, err := oras.Copy(ctx, src, opts.Reference, dst, opts.Reference, copyOptions)
 	if err != nil {
+		if errors.Is(err, file.ErrPathTraversalDisallowed) {
+			err = fmt.Errorf("%s: %w", "use flag --allow-path-traversal to allow insecurely pulling files outside of working directory", err)
+		}
 		return err
 	}
 	if pulledEmpty {
