@@ -1,5 +1,7 @@
 # Compatibility mode for ORAS
 
+
+
 This document is for adding a document to elaborate the compatibility mode for ORAS CLI which was proposed in [issue #720](https://github.com/oras-project/oras/issues/720).
 
 ## Background
